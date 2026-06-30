@@ -222,21 +222,14 @@ def upsert_row(engine, row: dict):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main():
-    date_str, date_fmt = yesterday_aest()
-    print(f"Pipeline running for {date_fmt} (AEST)\n")
-
-    session = requests.Session()
-    session.headers["User-Agent"] = "Mozilla/5.0 (onlyfacts-pipeline)"
-
+def build_daily_row(date_str: str, date_fmt: str, session: requests.Session) -> dict:
     print("Fetching rooftop data...")
     rt = fetch_rooftop(date_str, session)
 
     print("\nFetching operational data...")
     op = fetch_operational(date_str, session)
 
-    # Assemble the row in the agreed column order
-    row = {
+    return {
         "settlement_date": date_fmt,
         **{f"{r}_operational_GWh": op[f"{r}_operational_GWh"] for r in REGIONS},
         **{f"{r}_rooftop_GWh":     rt[f"{r}_rooftop_GWh"]     for r in REGIONS},
@@ -252,6 +245,16 @@ def main():
         "min_rooftop_MW":         rt["min_rooftop_MW"],
         "min_rooftop_time":       rt["min_rooftop_time"],
     }
+
+
+def main():
+    date_str, date_fmt = yesterday_aest()
+    print(f"Pipeline running for {date_fmt} (AEST)\n")
+
+    session = requests.Session()
+    session.headers["User-Agent"] = "Mozilla/5.0 (onlyfacts-pipeline)"
+
+    row = build_daily_row(date_str, date_fmt, session)
 
     print(f"\nRow summary:")
     print(f"  operational_demand_GWh : {row['operational_demand_GWh']:.3f}")
