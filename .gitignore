@@ -1,0 +1,16 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+
+.venv/
+venv/
+
+# Generated/downloaded data. Supabase already holds the loaded historical table.
+Data/
+Old_Dataset_Full.csv
+archieve/
+rooftop_samples/
+
+# Local environment files should never be committed.
+.env
+.env.*

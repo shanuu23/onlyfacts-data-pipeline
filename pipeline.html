@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OnlyFacts — Pipeline Explorer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Header ── */
+header { padding: 14px 24px; border-bottom: 1px solid #21262d; display: flex; align-items: center; gap: 16px; background: #161b22; flex-shrink: 0; }
+header h1 { font-size: 15px; font-weight: 600; }
+header p  { font-size: 12px; color: #8b949e; margin-top: 2px; }
+.tabs { display: flex; gap: 6px; margin-left: auto; }
+.tab { padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; border: 1px solid #30363d; color: #8b949e; background: transparent; transition: all 0.15s; }
+.tab:hover { border-color: #58a6ff; color: #58a6ff; }
+.tab.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+
+/* ── Layout ── */
+.main { display: flex; flex: 1; overflow: hidden; }
+.canvas-wrap { flex: 1; position: relative; overflow: auto; }
+svg.arrows { position: absolute; top: 0; left: 0; pointer-events: none; }
+
+/* ── Nodes ── */
+.node {
+  position: absolute; padding: 10px 14px; border-radius: 8px;
+  cursor: pointer; border: 1.5px solid; transition: transform 0.15s, filter 0.15s;
+  font-size: 12px; font-weight: 500; text-align: center; min-width: 145px;
+  user-select: none; white-space: nowrap;
+}
+.node:hover  { transform: translateY(-2px); filter: brightness(1.2); }
+.node.active { outline: 2px solid #58a6ff; outline-offset: 3px; }
+.node-sub    { font-size: 10px; opacity: 0.65; margin-top: 3px; font-weight: 400; }
+
+.t-script  { background: #0d2044; border-color: #1f6feb; color: #79c0ff; }
+.t-data    { background: #0d2f1a; border-color: #238636; color: #56d364; }
+.t-db      { background: #2a1a4a; border-color: #8957e5; color: #d2a8ff; }
+.t-trigger { background: #2f1f0a; border-color: #9e6a03; color: #e3b341; }
+.t-source  { background: #2f0f0f; border-color: #da3633; color: #ff7b72; }
+.t-infra   { background: #0f2a2a; border-color: #138d8d; color: #4ec9c9; }
+.t-secret  { background: #1f1f0a; border-color: #9a8a00; color: #e3d55a; }
+
+/* ── Legend ── */
+.legend { position: absolute; bottom: 16px; left: 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8b949e; }
+.legend-dot  { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+/* ── Detail panel ── */
+.panel { width: 300px; background: #161b22; border-left: 1px solid #21262d; padding: 20px; overflow-y: auto; flex-shrink: 0; }
+.panel-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #30363d; gap: 10px; font-size: 13px; }
+.panel-empty-icon { font-size: 36px; }
+.panel-name  { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.panel-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; }
+.panel-desc  { font-size: 12px; line-height: 1.7; color: #8b949e; margin-bottom: 18px; }
+.panel-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: #8b949e; margin-bottom: 8px; }
+.kv { background: #0d1117; border-radius: 6px; padding: 9px 12px; margin-bottom: 5px; }
+.kv-key { font-size: 10px; color: #8b949e; margin-bottom: 2px; }
+.kv-val { font-size: 12px; font-family: 'SF Mono', Consolas, monospace; color: #e6edf3; word-break: break-all; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⚡ OnlyFacts Automation — Pipeline Explorer</h1>
+    <p>Click any node to see details</p>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="setPhase(1)">Phase 1 — Historical Setup</button>
+    <button class="tab"        onclick="setPhase(2)">Phase 2 — Daily Automation</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="canvas-wrap" id="canvas">
+    <svg class="arrows" id="svg"></svg>
+    <div class="legend" id="legend"></div>
+  </div>
+  <div class="panel" id="panel">
+    <div class="panel-empty">
+      <div class="panel-empty-icon">👆</div>
+      <div>Click any node to explore</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Data ─────────────────────────────────────────────────────────────────────
+
+const TYPES = {
+  script:  { color: '#1f6feb', bg: '#0d2044', label: 'Script'           },
+  data:    { color: '#238636', bg: '#0d2f1a', label: 'Data'             },
+  db:      { color: '#8957e5', bg: '#2a1a4a', label: 'Database'         },
+  trigger: { color: '#9e6a03', bg: '#2f1f0a', label: 'Trigger'          },
+  source:  { color: '#da3633', bg: '#2f0f0f', label: 'External Source'  },
+  infra:   { color: '#138d8d', bg: '#0f2a2a', label: 'Infrastructure'   },
+  secret:  { color: '#9a8a00', bg: '#1f1f0a', label: 'Secrets'          },
+};
+
+const PHASES = {
+  1: {
+    canvasH: 860,
+    nodes: [
+      {
+        id: 'machine', x: 285, y: 30, type: 'infra',
+        label: 'Your Machine', sub: 'local environment',
+        desc: 'Everything in Phase 1 runs locally on your laptop — once. After the historical data is in Postgres, your machine is no longer involved in the daily flow.',
+        details: [
+          { k: 'When',         v: 'One-time only' },
+          { k: 'Requirements', v: 'Python 3.10+, pandas, requests, sqlalchemy' },
+        ],
+      },
+      {
+        id: 'dl_rt', x: 60, y: 150, type: 'script',
+        label: 'download_rooftop.py', sub: 'script',
+        desc: 'Downloads 89 monthly rooftop PV CSVs from the NEMWEB historical archive. Handles a naming change in Aug 2024 where filenames started containing # characters, which required double URL-encoding (%2523) to fetch correctly.',
+        details: [
+          { k: 'Source',         v: 'nemweb.com.au — MMSDM archive' },
+          { k: 'Date range',     v: 'Jan 2019 → last complete month' },
+          { k: 'Files',         v: '89 zip files (one per month)' },
+          { k: 'Output',         v: 'Data/Rooftop/*.CSV' },
+          { k: 'Naming cutover', v: 'Aug 2024 — %2523 encoding' },
+        ],
+      },
+      {
+        id: 'dl_op', x: 510, y: 150, type: 'script',
+        label: 'download_operational.py', sub: 'script',
+        desc: 'Downloads AEMO price-and-demand CSVs for all 5 NEM regions. These are rolling files updated daily so the current month is included, unlike the rooftop archive which only publishes complete months.',
+        details: [
+          { k: 'Source',     v: 'aemo.com.au — priceanddemand' },
+          { k: 'Date range', v: 'Jan 2019 → present (incl. current month)' },
+          { k: 'Files',     v: '~450 CSVs (5 regions × ~90 months)' },
+          { k: 'Output',     v: 'Data/Operational/*.csv' },
+        ],
+      },
+      {
+        id: 'rt_data', x: 60, y: 290, type: 'data',
+        label: 'Data/Rooftop/', sub: '89 CSV files',
+        desc: 'Raw monthly rooftop PV files in NEMWEB C/I/D row format. Each file covers one full month for all NEM regions and sub-regions (QLDC, QLDN, TASN, TASS etc.).',
+        details: [
+          { k: 'Format',   v: 'NEMWEB C/I/D rows' },
+          { k: 'Interval', v: '30 minutes (always)' },
+          { k: 'Regions',  v: 'NSW1, QLD1, SA1, TAS1, VIC1 + sub-regions' },
+          { k: 'Types',    v: 'MEASUREMENT, SATELLITE, DAILY' },
+        ],
+      },
+      {
+        id: 'op_data', x: 510, y: 290, type: 'data',
+        label: 'Data/Operational/', sub: '~450 CSV files',
+        desc: 'Raw monthly operational demand files from AEMO. The NEM switched from 30-min to 5-min settlement on Oct 1, 2021 — files after that date have 288 rows/day instead of 48.',
+        details: [
+          { k: 'Format',               v: 'Plain CSV' },
+          { k: 'Pre-Oct 2021 interval', v: '30 min → 48 rows/day' },
+          { k: 'Post-Oct 2021 interval',v: '5 min → 288 rows/day' },
+          { k: 'Regions',              v: 'NSW1, QLD1, SA1, TAS1, VIC1' },
+        ],
+      },
+      {
+        id: 'build', x: 285, y: 410, type: 'script',
+        label: 'build_dataset.py', sub: 'script',
+        desc: 'Reads all raw files, filters to MEASUREMENT type and TRADE periods, dynamically detects interval size per file (handling the 30-min/5-min switch), aggregates to daily GWh per state, and computes NEM-wide totals and daily peak/trough MW.',
+        details: [
+          { k: 'Rooftop filter',    v: 'TYPE == MEASUREMENT' },
+          { k: 'Op filter',         v: 'PERIODTYPE == TRADE' },
+          { k: 'Interval detection',v: 'Dynamic — inferred from timestamps' },
+          { k: 'Aggregation',       v: 'Daily sum per state' },
+          { k: 'Output',            v: 'Data/combined_dataset.csv' },
+        ],
+      },
+      {
+        id: 'csv', x: 285, y: 540, type: 'data',
+        label: 'combined_dataset.csv', sub: '2,724 rows × 22 columns',
+        desc: 'The final historical dataset at daily resolution. Contains per-state GWh, NEM-wide totals (operational, rooftop, underlying), and daily peak/trough MW with timestamps for both data sources.',
+        details: [
+          { k: 'Date range',    v: 'Jan 2019 → present' },
+          { k: 'Granularity',   v: 'Daily' },
+          { k: 'State columns', v: 'NSW1, QLD1, SA1, TAS1, VIC1 × 2 sources' },
+          { k: 'Total columns', v: '22' },
+        ],
+      },
+      {
+        id: 'load', x: 285, y: 660, type: 'script',
+        label: 'load_historical.py', sub: 'script — run once',
+        desc: 'One-time script that reads combined_dataset.csv and bulk-loads all 2,724 rows into the Postgres electricity_demand table. After this runs, the daily automation takes over.',
+        details: [
+          { k: 'When',     v: 'Once only — before daily automation starts' },
+          { k: 'Method',   v: 'pandas to_sql() via SQLAlchemy' },
+          { k: 'Rows',     v: '2,724' },
+          { k: 'SSL',      v: 'sslmode=require' },
+        ],
+      },
+      {
+        id: 'pg1', x: 285, y: 770, type: 'db',
+        label: 'Postgres DB', sub: 'electricity_demand table',
+        desc: 'Production database hosted on Supabase or Neon — publicly accessible so GitHub Actions can reach it. Both Phase 1 and Phase 2 write to this same table.',
+        details: [
+          { k: 'Host',        v: 'Supabase / Neon' },
+          { k: 'Table',       v: 'electricity_demand' },
+          { k: 'Primary key', v: 'settlement_date' },
+          { k: 'SSL',         v: 'Required (sslmode=require)' },
+        ],
+      },
+    ],
+    arrows: [
+      { from: 'machine', to: 'dl_rt'   },
+      { from: 'machine', to: 'dl_op'   },
+      { from: 'dl_rt',   to: 'rt_data' },
+      { from: 'dl_op',   to: 'op_data' },
+      { from: 'rt_data', to: 'build'   },
+      { from: 'op_data', to: 'build'   },
+      { from: 'build',   to: 'csv'     },
+      { from: 'csv',     to: 'load'    },
+      { from: 'load',    to: 'pg1'     },
+    ],
+  },
+
+  2: {
+    canvasH: 760,
+    nodes: [
+      {
+        id: 'cron', x: 285, y: 30, type: 'trigger',
+        label: 'GitHub Actions', sub: 'cron: 0 17 * * * (UTC)',
+        desc: 'Fires automatically every day at 17:00 UTC (3 AM AEST / 4 AM AEDT). This gives comfortable buffer after midnight for NEMWEB to publish all 48 intervals of the previous day. On any failure, GitHub sends an email alert.',
+        details: [
+          { k: 'Cron (UTC)',    v: '0 17 * * *' },
+          { k: 'Time AEST',    v: '3:00 AM' },
+          { k: 'Time AEDT',    v: '4:00 AM' },
+          { k: 'On failure',   v: 'Email notification (automatic)' },
+          { k: 'Free minutes', v: '2,000/month — this uses ~90/month' },
+        ],
+      },
+      {
+        id: 'yml', x: 100, y: 160, type: 'infra',
+        label: 'daily.yml', sub: '.github/workflows/',
+        desc: 'The GitHub Actions workflow file committed to the repo. Defines the three pipeline steps: checkout code, install dependencies, run script. Also injects GitHub Secrets as environment variables so the script can connect to Postgres.',
+        details: [
+          { k: 'Location', v: '.github/workflows/daily.yml' },
+          { k: 'Step 1',   v: 'Checkout repo' },
+          { k: 'Step 2',   v: 'pip install -r requirements.txt' },
+          { k: 'Step 3',   v: 'python daily_pipeline.py' },
+        ],
+      },
+      {
+        id: 'secrets', x: 470, y: 160, type: 'secret',
+        label: 'GitHub Secrets', sub: 'DB credentials',
+        desc: 'Postgres credentials stored securely in GitHub repo settings. Injected as environment variables at runtime — never written in code, never visible in logs. Set under: Repo → Settings → Secrets and variables → Actions.',
+        details: [
+          { k: 'DB_HOST',     v: 'aws-1-ap-northeast-2.pooler.supabase.com' },
+          { k: 'DB_PORT',     v: '5432' },
+          { k: 'DB_NAME',     v: 'postgres' },
+          { k: 'DB_USER',     v: 'postgres.<project-ref>' },
+          { k: 'DB_PASSWORD', v: '••••••••' },
+        ],
+      },
+      {
+        id: 'pipeline', x: 285, y: 290, type: 'script',
+        label: 'daily_pipeline.py', sub: 'core script',
+        desc: "The heart of the automation. Derives yesterday's date in Australian time (handles AEST/AEDT switching automatically via zoneinfo), downloads 48 interval files from each live source, parses NEMWEB format, aggregates to daily values, and UPSERTs a single row into Postgres.",
+        details: [
+          { k: 'Date logic',    v: 'zoneinfo — Australia/Sydney' },
+          { k: 'Files fetched', v: '48 rooftop + 48 operational zips' },
+          { k: 'Output',        v: '1 row → Postgres UPSERT' },
+          { k: 'Rerun safe',    v: 'Yes — UPSERT on settlement_date' },
+        ],
+      },
+      {
+        id: 'nemweb', x: 80, y: 420, type: 'source',
+        label: 'NEMWEB CURRENT', sub: 'rooftop live source',
+        desc: 'Live NEMWEB directory updated every 30 minutes. One zip per interval, each containing all 5 NEM regions. Rolling window of ~2 months so missed days can be backfilled.',
+        details: [
+          { k: 'URL',              v: 'nemweb.com.au/Reports/CURRENT/ROOFTOP_PV/ACTUAL/' },
+          { k: 'Update frequency', v: 'Every 30 minutes' },
+          { k: 'Files per day',    v: '48 zips' },
+          { k: 'Rolling window',   v: '~2 months' },
+          { k: 'Interval',         v: '30 minutes (always)' },
+        ],
+      },
+      {
+        id: 'aemo', x: 490, y: 420, type: 'source',
+        label: 'AEMO CURRENT', sub: 'operational live source',
+        desc: 'Live operational demand directory updated every 30 minutes. One zip per half-hourly interval. Uses NEMWEB C/I/D format and OPERATIONAL_DEMAND column (vs TOTALDEMAND in historical files — verified <0.5% difference).',
+        details: [
+          { k: 'URL',              v: 'nemweb.com.au/Reports/CURRENT/Operational_Demand/ACTUAL_HH/' },
+          { k: 'Update frequency', v: 'Every 30 minutes' },
+          { k: 'Files per day',    v: '48 zips' },
+          { k: 'Rolling window',   v: '~2 months' },
+          { k: 'Column',           v: 'OPERATIONAL_DEMAND' },
+        ],
+      },
+      {
+        id: 'transform', x: 285, y: 545, type: 'infra',
+        label: 'Transform & Aggregate', sub: 'inside daily_pipeline.py',
+        desc: 'Parses NEMWEB C/I/D format from both live sources. Filters to MEASUREMENT type and 5 main NEM regions. Converts MW → GWh (× 0.5/1000 for 30-min intervals). Sums to daily totals and finds NEM-wide peak/trough MW for the day.',
+        details: [
+          { k: 'Rooftop filter', v: 'TYPE == MEASUREMENT' },
+          { k: 'Op filter',      v: 'No PERIODTYPE in live files — all rows used' },
+          { k: 'Interval',       v: '30 min for both live sources' },
+          { k: 'Conversion',     v: 'MW × 0.5 / 1000 = GWh' },
+        ],
+      },
+      {
+        id: 'pg2', x: 285, y: 660, type: 'db',
+        label: 'Postgres DB', sub: 'UPSERT → electricity_demand',
+        desc: "Yesterday's row is upserted into the electricity_demand table. UPSERT means if the row already exists (e.g. rerun) it gets updated rather than duplicated. Connection uses SSL and credentials from GitHub Secrets. Wrapped in a transaction — all or nothing.",
+        details: [
+          { k: 'Operation',    v: 'INSERT ... ON CONFLICT DO UPDATE' },
+          { k: 'Primary key',  v: 'settlement_date' },
+          { k: 'Rows per run', v: '1' },
+          { k: 'SSL',          v: 'sslmode=require' },
+          { k: 'Transaction',  v: 'Atomic — all or nothing' },
+        ],
+      },
+    ],
+    arrows: [
+      { from: 'cron',     to: 'yml'       },
+      { from: 'cron',     to: 'secrets'   },
+      { from: 'yml',      to: 'pipeline'  },
+      { from: 'secrets',  to: 'pipeline'  },
+      { from: 'pipeline', to: 'nemweb'    },
+      { from: 'pipeline', to: 'aemo'      },
+      { from: 'nemweb',   to: 'transform' },
+      { from: 'aemo',     to: 'transform' },
+      { from: 'transform',to: 'pg2'       },
+    ],
+  },
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let phase    = 1;
+let selected = null;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function el(id) { return document.querySelector(`[data-id="${id}"]`); }
+
+function edgePoints(fromId, toId) {
+  const fe = el(fromId), te = el(toId);
+  const fx = parseFloat(fe.style.left), fy = parseFloat(fe.style.top);
+  const tx = parseFloat(te.style.left), ty = parseFloat(te.style.top);
+  const fw = fe.offsetWidth, fh = fe.offsetHeight;
+  const tw = te.offsetWidth, th = te.offsetHeight;
+
+  const fcx = fx + fw / 2, fcy = fy + fh / 2;
+  const tcx = tx + tw / 2, tcy = ty + th / 2;
+  const dx = tcx - fcx, dy = tcy - fcy;
+
+  if (Math.abs(dy) >= Math.abs(dx)) {
+    return {
+      x1: fcx, y1: dy > 0 ? fy + fh : fy,
+      x2: tcx, y2: dy > 0 ? ty      : ty + th,
+    };
+  }
+  return {
+    x1: dx > 0 ? fx + fw : fx, y1: fcy,
+    x2: dx > 0 ? tx      : tx + tw, y2: tcy,
+  };
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const canvas  = document.getElementById('canvas');
+  const svg     = document.getElementById('svg');
+  const legend  = document.getElementById('legend');
+  const data    = PHASES[phase];
+
+  // Remove old nodes
+  canvas.querySelectorAll('.node').forEach(n => n.remove());
+  svg.innerHTML = '';
+
+  // Canvas height
+  canvas.style.minHeight = data.canvasH + 'px';
+  svg.style.width  = '100%';
+  svg.style.height = data.canvasH + 'px';
+
+  // Arrowhead marker
+  svg.innerHTML = `
+    <defs>
+      <marker id="arr" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+        <path d="M0,0 L0,7 L7,3.5 z" fill="#444c56"/>
+      </marker>
+    </defs>`;
+
+  // Render nodes
+  data.nodes.forEach(n => {
+    const div = document.createElement('div');
+    div.className = `node t-${n.type}`;
+    div.dataset.id = n.id;
+    div.style.left = n.x + 'px';
+    div.style.top  = n.y + 'px';
+    div.innerHTML  = `${n.label}<div class="node-sub">${n.sub}</div>`;
+    div.onclick    = () => selectNode(n.id);
+    if (selected === n.id) div.classList.add('active');
+    canvas.appendChild(div);
+  });
+
+  // Draw arrows after layout
+  requestAnimationFrame(() => {
+    data.arrows.forEach(a => {
+      const pts = edgePoints(a.from, a.to);
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', pts.x1);
+      line.setAttribute('y1', pts.y1);
+      line.setAttribute('x2', pts.x2);
+      line.setAttribute('y2', pts.y2);
+      line.setAttribute('stroke', '#444c56');
+      line.setAttribute('stroke-width', '1.5');
+      line.setAttribute('marker-end', 'url(#arr)');
+      svg.appendChild(line);
+    });
+  });
+
+  // Legend
+  const seen = [...new Set(data.nodes.map(n => n.type))];
+  legend.innerHTML = seen.map(t => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${TYPES[t].color}44;border:1px solid ${TYPES[t].color}"></div>
+      ${TYPES[t].label}
+    </div>`).join('');
+}
+
+// ── Select node ───────────────────────────────────────────────────────────────
+function selectNode(id) {
+  selected = id;
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
+  const nodeEl = el(id);
+  if (nodeEl) nodeEl.classList.add('active');
+
+  const node = PHASES[phase].nodes.find(n => n.id === id);
+  const t    = TYPES[node.type];
+
+  document.getElementById('panel').innerHTML = `
+    <div class="panel-name">${node.label}</div>
+    <div class="panel-badge" style="background:${t.color}22;color:${t.color};border:1px solid ${t.color}55">
+      ${t.label}
+    </div>
+    <div class="panel-desc">${node.desc}</div>
+    ${node.details ? `
+      <div class="panel-section-title">Details</div>
+      ${node.details.map(d => `
+        <div class="kv">
+          <div class="kv-key">${d.k}</div>
+          <div class="kv-val">${d.v}</div>
+        </div>`).join('')}` : ''}
+  `;
+}
+
+// ── Phase switch ──────────────────────────────────────────────────────────────
+function setPhase(n) {
+  phase    = n;
+  selected = null;
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i + 1 === n));
+  document.getElementById('panel').innerHTML = `
+    <div class="panel-empty">
+      <div class="panel-empty-icon">👆</div>
+      <div>Click any node to explore</div>
+    </div>`;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
