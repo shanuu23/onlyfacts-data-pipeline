@@ -14,3 +14,6 @@ rooftop_samples/
 # Local environment files should never be committed.
 .env
 .env.*
+
+# Other files that should not be committed
+pipeline.html
