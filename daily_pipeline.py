@@ -34,7 +34,12 @@ def yesterday_aest() -> tuple[str, str]:
 
 # ── Download helpers ──────────────────────────────────────────────────────────
 
-def list_files(base_url: str, date_str: str, session: requests.Session) -> list:
+def list_files(
+    base_url: str,
+    date_str: str,
+    session: requests.Session,
+    required_text: str | None = None,
+) -> list:
     """Scrape a NEMWEB CURRENT directory and return all zip URLs matching date_str."""
     resp = session.get(base_url, timeout=30)
     resp.raise_for_status()
@@ -42,7 +47,11 @@ def list_files(base_url: str, date_str: str, session: requests.Session) -> list:
     links = []
     for a in soup.find_all("a", href=True):
         href = a["href"]
-        if date_str in href and href.endswith(".zip"):
+        if (
+            date_str in href
+            and href.endswith(".zip")
+            and (required_text is None or required_text in href)
+        ):
             # hrefs are relative paths — prepend host
             full = "https://nemweb.com.au" + href if href.startswith("/") else base_url + href
             links.append(full)
@@ -89,7 +98,7 @@ def parse_nemweb(lines: list) -> pd.DataFrame:
 
 def fetch_rooftop(date_str: str, session: requests.Session) -> dict:
     """Download all 48 rooftop interval files for date_str and return daily aggregates."""
-    urls = list_files(ROOFTOP_URL, date_str, session)
+    urls = list_files(ROOFTOP_URL, date_str, session, required_text="_MEASUREMENT_")
     print(f"  Rooftop: {len(urls)} interval files found")
     require_complete_day("Rooftop", urls, date_str)
 
