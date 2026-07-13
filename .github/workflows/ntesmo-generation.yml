@@ -1,0 +1,42 @@
+name: NTESMO Generation Source Check
+
+on:
+  # Temporary branch trigger for testing source access before database setup.
+  # Remove this trigger before the final pull request is merged.
+  push:
+    branches:
+      - "add-ntesmo-pipeline"
+    paths:
+      - "ntesmo/**"
+      - ".github/workflows/ntesmo-generation.yml"
+      - "requirements.txt"
+  pull_request:
+    paths:
+      - "ntesmo/**"
+      - ".github/workflows/ntesmo-generation.yml"
+      - "requirements.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download and transform latest NTESMO source
+        run: python ntesmo/daily_pipeline.py --dry-run

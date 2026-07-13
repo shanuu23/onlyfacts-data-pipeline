@@ -30,3 +30,30 @@ The Postgres connection uses these environment variables:
 
 Downloaded and generated data is stored under `electricity_demand/data/` and
 is excluded from Git.
+
+## NTESMO generation mix
+
+The NTESMO pipeline is being added incrementally. The offline transformation
+can be tested against an original weekly generation-mix file without network or
+database access:
+
+```bash
+python ntesmo/daily_pipeline.py --file /path/to/weekly.csv --dry-run
+```
+
+Test discovery and download of the latest first-page source without database
+writes:
+
+```bash
+python ntesmo/daily_pipeline.py --dry-run
+```
+
+A known direct asset URL can also be checked without database writes:
+
+```bash
+python ntesmo/daily_pipeline.py --url "https://ntesmo.com.au/path/to/file.csv" --dry-run
+```
+
+The NTESMO GitHub workflow is currently a read-only source check. Database
+writes and the Monday schedule will be added only after GitHub Actions can
+download the public source successfully.
