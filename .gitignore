@@ -7,6 +7,7 @@ venv/
 
 # Generated/downloaded data. Supabase already holds the loaded historical table.
 Data/
+electricity_demand/data/
 Old_Dataset_Full.csv
 archieve/
 rooftop_samples/

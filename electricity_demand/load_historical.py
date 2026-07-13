@@ -7,10 +7,12 @@ Requires environment variables:
 """
 
 import os
+from pathlib import Path
+
 import pandas as pd
 from sqlalchemy import create_engine, text, URL
 
-CSV_PATH = "Data/combined_dataset.csv"
+CSV_PATH = Path(__file__).resolve().parent / "data" / "combined_dataset.csv"
 TIME_COLUMNS = [
     "max_operational_time",
     "min_operational_time",
