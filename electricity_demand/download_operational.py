@@ -1,6 +1,6 @@
 """
 Downloads AEMO NEM price-and-demand CSVs for all regions from January 2019 to present.
-Files are saved directly (no zip) into Data/Operational/.
+Files are saved directly (no zip) into electricity_demand/data/Operational/.
 """
 
 import os
@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 import requests
 from tqdm import tqdm
 
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "Data", "Operational")
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "data", "Operational")
 BASE_URL   = "https://www.aemo.com.au/aemo/data/nem/priceanddemand/PRICE_AND_DEMAND_{year}{month:02d}_{region}.csv"
 REGIONS    = ["NSW1", "QLD1", "SA1", "TAS1", "VIC1"]
 START      = date(2019, 1, 1)

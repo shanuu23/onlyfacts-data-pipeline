@@ -1,4 +1,4 @@
-name: Daily Pipeline
+name: Electricity Demand Pipeline
 
 on:
   schedule:
@@ -24,11 +24,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run daily pipeline
+      - name: Run electricity demand pipeline
         env:
           DB_HOST:     ${{ secrets.DB_HOST }}
           DB_PORT:     ${{ secrets.DB_PORT }}
           DB_NAME:     ${{ secrets.DB_NAME }}
           DB_USER:     ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        run: python daily_pipeline.py
+        run: python electricity_demand/daily_pipeline.py

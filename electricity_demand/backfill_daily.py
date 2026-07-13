@@ -2,8 +2,8 @@
 Backfill missing daily rows into Supabase/Postgres.
 
 Usage:
-    python backfill_daily.py 2026-06-17 2026-06-29
-    python backfill_daily.py 2026-06-17 2026-06-29 --dry-run
+    python electricity_demand/backfill_daily.py 2026-06-17 2026-06-29
+    python electricity_demand/backfill_daily.py 2026-06-17 2026-06-29 --dry-run
 
 The end date is inclusive. Dates must be complete historical days in
 Australia/Sydney time; the script refuses to run for today or future dates.

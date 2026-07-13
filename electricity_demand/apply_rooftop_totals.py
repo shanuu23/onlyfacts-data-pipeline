@@ -5,8 +5,8 @@ This is a one-time fallback for periods where the NEMWEB monthly rooftop archive
 is not available yet, but an aggregate daily rooftop total is available.
 
 Usage:
-    python apply_rooftop_totals.py 2026-06-01 2026-06-30
-    python apply_rooftop_totals.py 2026-06-01 2026-06-30 --dry-run
+    python electricity_demand/apply_rooftop_totals.py 2026-06-01 2026-06-30
+    python electricity_demand/apply_rooftop_totals.py 2026-06-01 2026-06-30 --dry-run
 
 Only rooftop_GWh and underlying_demand_GWh are updated. State rooftop columns and
 rooftop peak/trough fields are left unchanged because the XLSX source only has
@@ -21,8 +21,9 @@ from zipfile import ZipFile
 
 import pandas as pd
 
-DEFAULT_CSV = Path("Data/combined_dataset.csv")
-DEFAULT_XLSX = Path("Data/2026_solar_data.xlsx")
+DATA_DIR = Path(__file__).resolve().parent / "data"
+DEFAULT_CSV = DATA_DIR / "combined_dataset.csv"
+DEFAULT_XLSX = DATA_DIR / "2026_solar_data.xlsx"
 
 MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"

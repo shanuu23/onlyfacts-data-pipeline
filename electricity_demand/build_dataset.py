@@ -1,6 +1,7 @@
 """
 Builds combined_dataset.csv from raw operational and rooftop data.
-Output: Data/combined_dataset.csv — daily resolution, Jan 2019 to present.
+Output: electricity_demand/data/combined_dataset.csv — daily resolution,
+Jan 2019 to present.
 
 Column order:
   settlement_date
@@ -15,9 +16,11 @@ import glob
 import pandas as pd
 from tqdm import tqdm
 
-OPERATIONAL_DIR = os.path.join("Data", "Operational")
-ROOFTOP_DIR     = os.path.join("Data", "Rooftop")
-OUTPUT_FILE     = os.path.join("Data", "combined_dataset.csv")
+PIPELINE_DIR    = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR        = os.path.join(PIPELINE_DIR, "data")
+OPERATIONAL_DIR = os.path.join(DATA_DIR, "Operational")
+ROOFTOP_DIR     = os.path.join(DATA_DIR, "Rooftop")
+OUTPUT_FILE     = os.path.join(DATA_DIR, "combined_dataset.csv")
 
 REGIONS = ["NSW1", "QLD1", "SA1", "TAS1", "VIC1"]
 
@@ -181,7 +184,7 @@ def main():
     )
     df = df[final_cols]
 
-    os.makedirs("Data", exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
     df.to_csv(OUTPUT_FILE)
 
     print(f"\nSaved:  {OUTPUT_FILE}")

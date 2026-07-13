@@ -1,6 +1,6 @@
 """
 Downloads NEMWEB historical rooftop PV actual data from January 2019 to the current month.
-Files are unzipped and saved as CSVs in Data/Rooftop/.
+Files are unzipped and saved as CSVs in electricity_demand/data/Rooftop/.
 """
 
 import os
@@ -12,7 +12,7 @@ from dateutil.relativedelta import relativedelta
 import requests
 from tqdm import tqdm
 
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "Data", "Rooftop")
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "data", "Rooftop")
 
 # NEMWEB changed the filename convention in Aug 2024.
 # Pre-Aug 2024:  PUBLIC_DVD_ROOFTOP_PV_ACTUAL_{YEAR}{MONTH}010000.zip
