@@ -59,11 +59,13 @@ def list_files(
     return sorted(set(links))
 
 
-def require_complete_day(label: str, urls: list, date_str: str) -> None:
-    if len(urls) != EXPECTED_INTERVAL_FILES:
-        raise RuntimeError(
+def warn_if_incomplete_day(label: str, urls: list, date_str: str) -> None:
+    """Emit a GitHub Actions warning, but allow partial-day processing."""
+    if len(urls) < EXPECTED_INTERVAL_FILES:
+        print(
+            "::warning title=Incomplete interval data::"
             f"{label}: expected {EXPECTED_INTERVAL_FILES} interval files for "
-            f"{date_str}, found {len(urls)}. Refusing to write a partial day."
+            f"{date_str}, found {len(urls)}. Continuing with partial-day aggregates."
         )
 
 
@@ -97,10 +99,10 @@ def parse_nemweb(lines: list) -> pd.DataFrame:
 # ── Rooftop ───────────────────────────────────────────────────────────────────
 
 def fetch_rooftop(date_str: str, session: requests.Session) -> dict:
-    """Download all 48 rooftop interval files for date_str and return daily aggregates."""
+    """Download available rooftop interval files and return daily aggregates."""
     urls = list_files(ROOFTOP_URL, date_str, session, required_text="_MEASUREMENT_")
     print(f"  Rooftop: {len(urls)} interval files found")
-    require_complete_day("Rooftop", urls, date_str)
+    warn_if_incomplete_day("Rooftop", urls, date_str)
 
     frames = []
     for url in urls:
@@ -140,10 +142,10 @@ def fetch_rooftop(date_str: str, session: requests.Session) -> dict:
 # ── Operational ───────────────────────────────────────────────────────────────
 
 def fetch_operational(date_str: str, session: requests.Session) -> dict:
-    """Download all 48 operational demand interval files for date_str and return daily aggregates."""
+    """Download available operational demand interval files and return daily aggregates."""
     urls = list_files(OP_URL, date_str, session)
     print(f"  Operational: {len(urls)} interval files found")
-    require_complete_day("Operational", urls, date_str)
+    warn_if_incomplete_day("Operational", urls, date_str)
 
     frames = []
     for url in urls:
